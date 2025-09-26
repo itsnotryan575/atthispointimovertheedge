@@ -314,18 +314,47 @@ class AuthServiceClass {
         throw new Error('No authenticated user');
       }
       
-      const { error } = await this.supabase
+      // First, check if a profile already exists for this user
+      const { data: existingProfile, error: selectError } = await this.supabase
         .from('user_profiles')
-        .upsert({
-          user_id: session.user.id,
-          selected_list_type: listType,
-          updated_at: new Date().toISOString(),
-        }, {
-          onConflict: 'user_id'
-        });
+        .select('id')
+        .eq('user_id', session.user.id)
+        .single();
       
-      if (error) {
-        throw new Error(error.message);
+      if (selectError && selectError.code !== 'PGRST116') {
+        // PGRST116 is "not found" error, which is expected for new users
+        throw new Error(selectError.message);
+      }
+      
+      const now = new Date().toISOString();
+      
+      if (existingProfile) {
+        // Profile exists, update it
+        const { error: updateError } = await this.supabase
+          .from('user_profiles')
+          .update({
+            selected_list_type: listType,
+            updated_at: now,
+          })
+          .eq('user_id', session.user.id);
+        
+        if (updateError) {
+          throw new Error(updateError.message);
+        }
+      } else {
+        // Profile doesn't exist, create it
+        const { error: insertError } = await this.supabase
+          .from('user_profiles')
+          .insert({
+            user_id: session.user.id,
+            selected_list_type: listType,
+            created_at: now,
+            updated_at: now,
+          });
+        
+        if (insertError) {
+          throw new Error(insertError.message);
+        }
       }
     } catch (error) {
       console.error('Error updating selected list type:', error);
