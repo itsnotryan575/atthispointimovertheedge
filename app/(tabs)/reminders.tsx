@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Alert } from 'react-native';
 import { Bell, Calendar, Filter, Plus } from 'lucide-react-native';
 import { ReminderCard } from '../../components/ReminderCard';
 import { FilterModal } from '../../components/FilterModal';
@@ -267,12 +267,10 @@ export default function RemindersScreen() {
                     }
                     setAddReminderModalVisible(true);
                   }}
-                  }}
                 >
                   <Plus size={20} color="#FFFFFF" />
                   <Text style={styles.emptyActionButtonText}>
                     {!user?.isPro && monthlyReminderCount >= 5 ? 'Upgrade for More' : 'Add Your First Reminder'}
-                  </Text>
                   </Text>
                 </TouchableOpacity>
               )}
