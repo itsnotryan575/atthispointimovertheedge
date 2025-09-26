@@ -125,9 +125,11 @@ export default function SignUpScreen() {
     setIsLoading(true);
     try {
       await verifyEmailOtp(email.trim(), otpCode.trim());
-      Alert.alert('Success', 'Email verified successfully! You can now sign in.', [
-        { text: 'OK', onPress: () => router.replace('/(tabs)') }
-      ]);
+      
+      // Small delay to ensure session is properly updated
+      setTimeout(() => {
+        router.replace('/');
+      }, 500);
     } catch (error) {
       console.error('Verify OTP error:', error);
       Alert.alert('Verification Failed', error.message || 'Invalid verification code. Please try again.');
