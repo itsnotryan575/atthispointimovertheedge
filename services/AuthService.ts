@@ -185,6 +185,7 @@ class AuthServiceClass {
     // Log out from RevenueCat
     try {
       if (this.revenueCatInitialized) {
+        await new Promise(resolve => setTimeout(resolve, 100));
         await Purchases.logOut();
       }
     } catch (error) {
