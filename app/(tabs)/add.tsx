@@ -95,36 +95,74 @@ export default function AddInteractionScreen() {
         case 'add_profile':
           // Add selected image to profile data if available
           const profileArgs = { ...intent.args };
-          const profileId = await addProfile(profileArgs);
-          
-          // If there's a selected image, update the profile with the photo
-          if (selectedImage && profileId) {
-            await DatabaseService.createOrUpdateProfile({
-              id: profileId,
-              photoUri: selectedImage.uri,
-              // Include other required fields to prevent overwriting
-              name: profileArgs.name,
-              relationship: profileArgs.relationshipType || 'acquaintance',
-              phone: profileArgs.phone || null,
-              notes: profileArgs.notes || null,
-              tags: profileArgs.tags || [],
-              listType: profileArgs.listType || null,
-              lastContactDate: new Date().toISOString(),
-            });
+          try {
+            const profileId = await addProfile(profileArgs);
+            
+            // If there's a selected image, update the profile with the photo
+            if (selectedImage && profileId) {
+              await DatabaseService.createOrUpdateProfile({
+                id: profileId,
+                photoUri: selectedImage.uri,
+                // Include other required fields to prevent overwriting
+                name: profileArgs.name,
+                relationship: profileArgs.relationshipType || 'acquaintance',
+                phone: profileArgs.phone || null,
+                notes: profileArgs.notes || null,
+                tags: profileArgs.tags || [],
+                listType: profileArgs.listType || null,
+                lastContactDate: new Date().toISOString(),
+              });
+            }
+            
+            setChatMessages(prev => [...prev, { 
+              type: 'ai', 
+              text: `Great! I've added ${intent.args.name} to your contacts.`
+            }]);
+          } catch (error) {
+            if (error.message === 'PROFILE_LIMIT_REACHED') {
+              setChatMessages(prev => [...prev, { 
+                type: 'ai', 
+                text: `You've reached the 5 profile limit for free users. Upgrade to Pro for unlimited profiles!`
+              }]);
+              Alert.alert(
+                'Profile Limit Reached',
+                'Free users can manage up to 5 profiles. Upgrade to Pro for unlimited profiles.',
+                [
+                  { text: 'Maybe Later', style: 'cancel' },
+                  { text: 'Upgrade to Pro', onPress: () => router.push('/settings/subscription') }
+                ]
+              );
+            } else {
+              throw error;
+            }
           }
-          
-          setChatMessages(prev => [...prev, { 
-            type: 'ai', 
-            text: `Great! I've added ${intent.args.name} to your contacts.`
-          }]);
           break;
           
         case 'set_profile_list':
-          await setProfileList(intent.args);
-          setChatMessages(prev => [...prev, { 
-            type: 'ai', 
-            text: `Perfect! I've moved ${intent.args.profileName || 'the profile'} to your ${intent.args.listType} list.`
-          }]);
+          try {
+            await setProfileList(intent.args);
+            setChatMessages(prev => [...prev, { 
+              type: 'ai', 
+              text: `Perfect! I've moved ${intent.args.profileName || 'the profile'} to your ${intent.args.listType} list.`
+            }]);
+          } catch (error) {
+            if (error.message === 'LIST_ACCESS_RESTRICTED') {
+              setChatMessages(prev => [...prev, { 
+                type: 'ai', 
+                text: `Free users have access to one list only. Upgrade to Pro to access all lists!`
+              }]);
+              Alert.alert(
+                'Pro Feature',
+                'Free users have access to one list. Upgrade to Pro to access all lists.',
+                [
+                  { text: 'Maybe Later', style: 'cancel' },
+                  { text: 'Upgrade to Pro', onPress: () => router.push('/settings/subscription') }
+                ]
+              );
+            } else {
+              throw error;
+            }
+          }
           break;
           
         case 'edit_profile':
@@ -135,28 +173,58 @@ export default function AddInteractionScreen() {
           }]);
           break;
           
-        case 'set_profile_list':
-          await setProfileList(intent.args);
-          setChatMessages(prev => [...prev, { 
-            type: 'ai', 
-            text: `Perfect! I've moved ${intent.args.profileName || 'the profile'} to your ${intent.args.listType} list.`
-          }]);
-          break;
-          
         case 'schedule_text':
-          await scheduleText(intent.args);
-          setChatMessages(prev => [...prev, { 
-            type: 'ai', 
-            text: `Perfect! I've scheduled your text message for ${new Date(intent.args.when).toLocaleString()}.`
-          }]);
+          try {
+            await scheduleText(intent.args);
+            setChatMessages(prev => [...prev, { 
+              type: 'ai', 
+              text: `Perfect! I've scheduled your text message for ${new Date(intent.args.when).toLocaleString()}.`
+            }]);
+          } catch (error) {
+            if (error.message === 'MONTHLY_TEXT_LIMIT_REACHED') {
+              setChatMessages(prev => [...prev, { 
+                type: 'ai', 
+                text: `You've reached the 5 scheduled text limit for this month. Upgrade to Pro for unlimited texts!`
+              }]);
+              Alert.alert(
+                'Monthly Text Limit Reached',
+                'Free users can schedule up to 5 texts per month. Upgrade to Pro for unlimited scheduled texts.',
+                [
+                  { text: 'Maybe Later', style: 'cancel' },
+                  { text: 'Upgrade to Pro', onPress: () => router.push('/settings/subscription') }
+                ]
+              );
+            } else {
+              throw error;
+            }
+          }
           break;
           
         case 'schedule_reminder':
-          await scheduleReminderFromIntent(intent.args);
-          setChatMessages(prev => [...prev, { 
-            type: 'ai', 
-            text: `Got it! I've scheduled a reminder for ${new Date(intent.args.when).toLocaleString()}.`
-          }]);
+          try {
+            await scheduleReminderFromIntent(intent.args);
+            setChatMessages(prev => [...prev, { 
+              type: 'ai', 
+              text: `Got it! I've scheduled a reminder for ${new Date(intent.args.when).toLocaleString()}.`
+            }]);
+          } catch (error) {
+            if (error.message === 'MONTHLY_REMINDER_LIMIT_REACHED') {
+              setChatMessages(prev => [...prev, { 
+                type: 'ai', 
+                text: `You've reached the 5 reminder limit for this month. Upgrade to Pro for unlimited reminders!`
+              }]);
+              Alert.alert(
+                'Monthly Reminder Limit Reached',
+                'Free users can create up to 5 reminders per month. Upgrade to Pro for unlimited reminders.',
+                [
+                  { text: 'Maybe Later', style: 'cancel' },
+                  { text: 'Upgrade to Pro', onPress: () => router.push('/settings/subscription') }
+                ]
+              );
+            } else {
+              throw error;
+            }
+          }
           break;
           
         case 'none':

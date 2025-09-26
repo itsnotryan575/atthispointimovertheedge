@@ -10,7 +10,9 @@ import { ListSelectorModal } from '@/components/ListSelectorModal';
 import { router } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
 
+import { useAuth } from '@/context/AuthContext';
 export default function RosterScreen() {
+  const { user } = useAuth();
   const [profiles, setProfiles] = useState([]);
   const [filteredProfiles, setFilteredProfiles] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -128,10 +130,36 @@ export default function RosterScreen() {
   };
 
   const handleAddPress = () => {
+    // Check profile limit for free users
+    if (!user?.isPro && profiles.length >= 5) {
+      Alert.alert(
+        'Profile Limit Reached',
+        'Free users can manage up to 5 profiles. Upgrade to Pro for unlimited profiles and access to all lists.',
+        [
+          { text: 'Maybe Later', style: 'cancel' },
+          { text: 'Upgrade to Pro', onPress: () => router.push('/settings/subscription') }
+        ]
+      );
+      return;
+    }
+    
     router.push('/profile/create');
   };
 
   const handleListSelect = (listType: 'All' | 'Roster' | 'Network' | 'People') => {
+    // Check if free user is trying to access a different list
+    if (!user?.isPro && listType !== 'All' && listType !== user?.selectedListType) {
+      Alert.alert(
+        'Pro Feature',
+        'Free users have access to one list. Upgrade to Pro to access all lists and unlimited profiles.',
+        [
+          { text: 'Maybe Later', style: 'cancel' },
+          { text: 'Upgrade to Pro', onPress: () => router.push('/settings/subscription') }
+        ]
+      );
+      return;
+    }
+    
     setCurrentListType(listType);
     // Profiles will reload automatically due to the useEffect dependency on currentListType
   };
@@ -166,9 +194,19 @@ export default function RosterScreen() {
               : "Try adjusting your search or filter"
             }
           </Text>
-          <TouchableOpacity style={[styles.addButton, { backgroundColor: theme.secondary }]} onPress={handleAddPress}>
+          <TouchableOpacity 
+            style={[
+              styles.addButton, 
+              { backgroundColor: theme.secondary },
+              (!user?.isPro && profiles.length >= 5) && { opacity: 0.5 }
+            ]} 
+            onPress={handleAddPress}
+            disabled={!user?.isPro && profiles.length >= 5}
+          >
             <Plus size={20} color="#FFFFFF" />
-            <Text style={styles.addButtonText}>Add Profile</Text>
+            <Text style={styles.addButtonText}>
+              {!user?.isPro && profiles.length >= 5 ? 'Upgrade for More' : 'Add Profile'}
+            </Text>
           </TouchableOpacity>
         </View>
       ) : (

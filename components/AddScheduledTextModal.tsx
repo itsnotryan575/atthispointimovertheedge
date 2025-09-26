@@ -15,6 +15,8 @@ import { X, Calendar, User, Clock, MessageSquare, Phone, ChevronLeft, ChevronRig
 import { DatabaseService } from '@/services/DatabaseService';
 import { scheduleScheduledText, buildWhenFromComponents } from '@/services/Scheduler';
 import { useTheme } from '@/context/ThemeContext';
+import { useAuth } from '@/context/AuthContext';
+import { router } from 'expo-router';
 
 interface Profile {
   id: number;
@@ -40,6 +42,7 @@ const QUICK_DATES = [
 
 export function AddScheduledTextModal({ visible, onClose, onTextScheduled, theme }: AddScheduledTextModalProps) {
   const { isDark } = useTheme();
+  const { user } = useAuth();
   const [phoneNumber, setPhoneNumber] = useState('');
   const [message, setMessage] = useState('');
   const [selectedProfile, setSelectedProfile] = useState<number | null>(null);
@@ -112,6 +115,26 @@ export function AddScheduledTextModal({ visible, onClose, onTextScheduled, theme
 
     setLoading(true);
     try {
+      // Check monthly scheduled text limit for free users
+      if (!user?.isPro) {
+        const monthlyCount = await DatabaseService.getMonthlyScheduledTextCount();
+        if (monthlyCount >= 5) {
+          Alert.alert(
+            'Monthly Text Limit Reached',
+            'Free users can schedule up to 5 texts per month. Upgrade to Pro for unlimited scheduled texts.',
+            [
+              { text: 'Maybe Later', style: 'cancel' },
+              { text: 'Upgrade to Pro', onPress: () => {
+                handleClose();
+                router.push('/settings/subscription');
+              }}
+            ]
+          );
+          setLoading(false);
+          return;
+        }
+      }
+      
       // Create the scheduled datetime
       const time24Hour = convertTo24Hour(scheduledTime, selectedAmPm);
       const dateTimeString = `${scheduledDate}T${time24Hour}:00`;

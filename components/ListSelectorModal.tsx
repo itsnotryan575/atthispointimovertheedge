@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
 import { X, Check, Users, Briefcase, Heart, Globe } from 'lucide-react-native';
 import { ArmiList } from '@/types/armi-intents';
+import { useAuth } from '@/context/AuthContext';
 
 type ArmiListFilter = 'All' | ArmiList;
 
@@ -51,7 +52,14 @@ export function ListSelectorModal({
   onSelect, 
   theme 
 }: ListSelectorModalProps) {
+  const { user } = useAuth();
+
   const handleSelect = (listType: ArmiListFilter) => {
+    // Check if free user is trying to access a restricted list
+    if (!user?.isPro && listType !== 'All' && listType !== user?.selectedListType) {
+      return; // Don't allow selection
+    }
+    
     onSelect(listType);
     onClose();
   };
@@ -80,6 +88,7 @@ export function ListSelectorModal({
             {LIST_OPTIONS.map((option) => {
               const IconComponent = option.icon;
               const isSelected = currentSelection === option.key;
+              const isDisabled = !user?.isPro && option.key !== 'All' && option.key !== user?.selectedListType;
               
               return (
                 <TouchableOpacity
@@ -87,18 +96,27 @@ export function ListSelectorModal({
                   style={[
                     styles.listOption,
                     { borderBottomColor: theme.border },
-                    isSelected && { backgroundColor: theme.accent }
+                    isSelected && { backgroundColor: theme.accent },
+                    isDisabled && { opacity: 0.5 }
                   ]}
                   onPress={() => handleSelect(option.key)}
+                  disabled={isDisabled}
                 >
                   <View style={styles.optionLeft}>
                     <View style={[styles.iconContainer, { backgroundColor: option.color }]}>
                       <IconComponent size={18} color="#FFFFFF" />
                     </View>
                     <View style={styles.optionText}>
-                      <Text style={[styles.optionTitle, { color: theme.text }]}>
-                        {option.label}
-                      </Text>
+                      <View style={styles.titleRow}>
+                        <Text style={[styles.optionTitle, { color: theme.text }]}>
+                          {option.label}
+                        </Text>
+                        {isDisabled && (
+                          <View style={[styles.proBadge, { backgroundColor: '#F59E0B' }]}>
+                            <Text style={styles.proText}>PRO</Text>
+                          </View>
+                        )}
+                      </View>
                       <Text style={[styles.optionDescription, { color: theme.primary }]}>
                         {option.description}
                       </Text>
@@ -176,10 +194,25 @@ const styles = StyleSheet.create({
   optionText: {
     flex: 1,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
   optionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    marginBottom: 2,
+    marginRight: 8,
+  },
+  proBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  proText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
   },
   optionDescription: {
     fontSize: 13,

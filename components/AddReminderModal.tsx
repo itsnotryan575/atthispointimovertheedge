@@ -14,6 +14,8 @@ import { X, Calendar, User, Clock, Tag, ChevronLeft, ChevronRight } from 'lucide
 import { DatabaseService } from '@/services/DatabaseService';
 import { scheduleReminder, buildWhenFromComponents } from '@/services/Scheduler';
 import { useTheme } from '@/context/ThemeContext';
+import { useAuth } from '@/context/AuthContext';
+import { router } from 'expo-router';
 
 interface Profile {
   id: number;
@@ -46,6 +48,7 @@ const QUICK_DATES = [
 
 export function AddReminderModal({ visible, onClose, onReminderAdded, theme }: AddReminderModalProps) {
   const { isDark } = useTheme();
+  const { user } = useAuth();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [selectedType, setSelectedType] = useState('general');
@@ -110,6 +113,26 @@ export function AddReminderModal({ visible, onClose, onReminderAdded, theme }: A
 
     setLoading(true);
     try {
+      // Check monthly reminder limit for free users
+      if (!user?.isPro) {
+        const monthlyCount = await DatabaseService.getMonthlyReminderCount();
+        if (monthlyCount >= 5) {
+          Alert.alert(
+            'Monthly Reminder Limit Reached',
+            'Free users can create up to 5 reminders per month. Upgrade to Pro for unlimited reminders.',
+            [
+              { text: 'Maybe Later', style: 'cancel' },
+              { text: 'Upgrade to Pro', onPress: () => {
+                handleClose();
+                router.push('/settings/subscription');
+              }}
+            ]
+          );
+          setLoading(false);
+          return;
+        }
+      }
+      
       // Create the scheduled datetime with proper timezone handling
       const time24Hour = convertTo24Hour(scheduledTime, selectedAmPm);
       

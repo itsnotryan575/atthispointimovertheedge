@@ -1,10 +1,20 @@
 import { DatabaseService } from './DatabaseService';
 import { scheduleReminder } from './Scheduler';
+import { AuthService } from './AuthService';
 
 export async function scheduleReminderFromIntent(args: { profileName?: string; profileId?: string; when: string; reason?: string }) {
   console.log('ReminderService: Scheduling reminder with args:', args);
   
   try {
+    // Check pro status and monthly limits
+    const proStatus = await AuthService.checkProStatus();
+    if (!proStatus.isPro) {
+      const monthlyCount = await DatabaseService.getMonthlyReminderCount();
+      if (monthlyCount >= 5) {
+        throw new Error('MONTHLY_REMINDER_LIMIT_REACHED');
+      }
+    }
+    
     // Validate and parse the ISO-8601 date string
     const scheduledDate = new Date(args.when);
     

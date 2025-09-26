@@ -338,6 +338,7 @@ export default function RootLayout() {
             <Stack.Screen name="profile/edit/[id]" options={{ headerShown: false }} />
             <Stack.Screen name="settings/appearance" options={{ headerShown: false }} />
             <Stack.Screen name="settings/profile" options={{ headerShown: false }} />
+            <Stack.Screen name="settings/subscription" options={{ headerShown: false }} />
             <Stack.Screen name="+not-found" />
           </Stack>
         </GestureHandlerRootView>

@@ -1,10 +1,20 @@
 import { DatabaseService } from './DatabaseService';
 import { ArmiList } from '../types/armi-intents';
+import { AuthService } from './AuthService';
 
 export async function addProfile(args: { name: string; phone?: string; tags?: string[]; notes?: string; relationshipType?: string; listType?: ArmiList }) {
   console.log('ProfileService: Adding profile with args:', args);
   
   try {
+    // Check pro status and profile limits
+    const proStatus = await AuthService.checkProStatus();
+    if (!proStatus.isPro) {
+      const currentCount = await DatabaseService.getProfileCount();
+      if (currentCount >= 5) {
+        throw new Error('PROFILE_LIMIT_REACHED');
+      }
+    }
+    
     // Convert the intent args to the format expected by DatabaseService
     const profileData = {
       name: args.name,
@@ -52,6 +62,12 @@ export async function setProfileList(args: { profileId?: string; profileName?: s
   console.log('ProfileService: Setting profile list with args:', args);
   
   try {
+    // Check if user has access to this list type
+    const proStatus = await AuthService.checkProStatus();
+    if (!proStatus.isPro && args.listType !== proStatus.selectedListType) {
+      throw new Error('LIST_ACCESS_RESTRICTED');
+    }
+    
     const { profileId, profileName, listType } = args;
     let id: number | undefined;
 

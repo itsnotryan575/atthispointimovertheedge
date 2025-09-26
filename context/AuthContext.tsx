@@ -1,11 +1,16 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { AuthService } from '@/services/AuthService';
+import { ArmiList } from '@/types/armi-intents';
 
 interface User {
   id: string;
   email: string;
   email_confirmed_at?: string;
   created_at: string;
+  isPro: boolean;
+  selectedListType: ArmiList | null;
+  isProForLife: boolean;
+  hasRevenueCatEntitlement: boolean;
 }
 
 interface AuthContextType {
@@ -20,6 +25,8 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<void>;
   updatePassword: (newPassword: string) => Promise<void>;
   updateEmail: (newEmail: string) => Promise<void>;
+  updateSelectedListType: (listType: ArmiList) => Promise<void>;
+  checkProStatus: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -51,8 +58,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
         async (event, session) => {
           console.log('Auth state changed:', event, session?.user?.email);
           console.log('User email_confirmed_at:', session?.user?.email_confirmed_at);
+          
+          if (session?.user) {
+            // Check pro status and update user object
+            const proStatus = await AuthService.checkProStatus();
+            const enhancedUser = {
+              ...session.user,
+              isPro: proStatus.isPro,
+              selectedListType: proStatus.selectedListType,
+              isProForLife: proStatus.isProForLife,
+              hasRevenueCatEntitlement: proStatus.hasRevenueCatEntitlement,
+            };
+            setUser(enhancedUser);
+          } else {
+            setUser(null);
+          }
+          
           setSession(session);
-          setUser(session?.user || null);
           setLoading(false);
         }
       );
@@ -105,8 +127,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       // Force refresh the current session to get updated user data
       const refreshedSession = await AuthService.getSession();
+      
+      if (refreshedSession?.user) {
+        const proStatus = await AuthService.checkProStatus();
+        const enhancedUser = {
+          ...refreshedSession.user,
+          isPro: proStatus.isPro,
+          selectedListType: proStatus.selectedListType,
+          isProForLife: proStatus.isProForLife,
+          hasRevenueCatEntitlement: proStatus.hasRevenueCatEntitlement,
+        };
+        setUser(enhancedUser);
+      } else {
+        setUser(null);
+      }
+      
       setSession(refreshedSession);
-      setUser(refreshedSession?.user || null);
       
       return result;
     } catch (error) {
@@ -149,6 +185,40 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  const updateSelectedListType = async (listType: ArmiList) => {
+    try {
+      await AuthService.updateSelectedListType(listType);
+      
+      // Update user state
+      if (user) {
+        setUser({
+          ...user,
+          selectedListType: listType,
+        });
+      }
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const checkProStatus = async () => {
+    try {
+      const proStatus = await AuthService.checkProStatus();
+      
+      if (user) {
+        setUser({
+          ...user,
+          isPro: proStatus.isPro,
+          selectedListType: proStatus.selectedListType,
+          isProForLife: proStatus.isProForLife,
+          hasRevenueCatEntitlement: proStatus.hasRevenueCatEntitlement,
+        });
+      }
+    } catch (error) {
+      console.error('Error checking pro status:', error);
+    }
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -162,6 +232,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       resetPassword,
       updatePassword,
       updateEmail,
+      updateSelectedListType,
+      checkProStatus,
     }}>
       {children}
     </AuthContext.Provider>

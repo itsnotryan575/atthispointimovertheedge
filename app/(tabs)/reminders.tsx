@@ -8,6 +8,8 @@ import { EditReminderModal } from '../../components/EditReminderModal';
 import { DatabaseService } from '@/services/DatabaseService';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '@/context/ThemeContext';
+import { useAuth } from '@/context/AuthContext';
+import { router } from 'expo-router';
 
 const REMINDER_TYPE_COLORS = {
   all: '#6B7280',
@@ -19,6 +21,7 @@ const REMINDER_TYPE_COLORS = {
 };
 
 export default function RemindersScreen() {
+  const { user } = useAuth();
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [addReminderModalVisible, setAddReminderModalVisible] = useState(false);
   const [editReminderModalVisible, setEditReminderModalVisible] = useState(false);
@@ -26,6 +29,7 @@ export default function RemindersScreen() {
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [reminders, setReminders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [monthlyReminderCount, setMonthlyReminderCount] = useState(0);
   const { isDark } = useTheme();
 
   const colors = {
@@ -42,11 +46,13 @@ export default function RemindersScreen() {
 
   useEffect(() => {
     loadReminders();
+    loadMonthlyReminderCount();
   }, []);
 
   useFocusEffect(
     React.useCallback(() => {
       loadReminders();
+      loadMonthlyReminderCount();
     }, [])
   );
 
@@ -59,6 +65,15 @@ export default function RemindersScreen() {
       console.error('Error loading reminders:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadMonthlyReminderCount = async () => {
+    try {
+      const count = await DatabaseService.getMonthlyReminderCount();
+      setMonthlyReminderCount(count);
+    } catch (error) {
+      console.error('Error loading monthly reminder count:', error);
     }
   };
 
@@ -105,6 +120,7 @@ export default function RemindersScreen() {
 
   const handleReminderAdded = () => {
     loadReminders(); // Refresh the list
+    loadMonthlyReminderCount(); // Refresh the count
   };
 
   const handleReminderEdit = (reminder: any) => {
@@ -127,7 +143,21 @@ export default function RemindersScreen() {
         <View style={styles.headerActions}>
           <TouchableOpacity
             style={[styles.headerButton, { backgroundColor: colors.secondary, borderColor: colors.border }]}
-            onPress={() => setAddReminderModalVisible(true)}
+            onPress={() => {
+              // Check monthly reminder limit for free users
+              if (!user?.isPro && monthlyReminderCount >= 5) {
+                Alert.alert(
+                  'Monthly Reminder Limit Reached',
+                  'Free users can create up to 5 reminders per month. Upgrade to Pro for unlimited reminders.',
+                  [
+                    { text: 'Maybe Later', style: 'cancel' },
+                    { text: 'Upgrade to Pro', onPress: () => router.push('/settings/subscription') }
+                  ]
+                );
+                return;
+              }
+              setAddReminderModalVisible(true);
+            }}
           >
             <Plus size={20} color="#FFFFFF" />
           </TouchableOpacity>
@@ -222,10 +252,42 @@ export default function RemindersScreen() {
               {selectedFilter === 'all' && (
                 <TouchableOpacity
                   style={[styles.emptyActionButton, { backgroundColor: colors.secondary }]}
-                  onPress={() => setAddReminderModalVisible(true)}
+                  onPress={() => {
+                    // Check monthly reminder limit for free users
+                    if (!user?.isPro && monthlyReminderCount >= 5) {
+                      Alert.alert(
+                        'Monthly Reminder Limit Reached',
+                        'Free users can create up to 5 reminders per month. Upgrade to Pro for unlimited reminders.',
+                        [
+                          { text: 'Maybe Later', style: 'cancel' },
+                          { text: 'Upgrade to Pro', onPress: () => router.push('/settings/subscription') }
+                        ]
+                      );
+                      return;
+                    }
+                    setAddReminderModalVisible(true);
+                  }}
+                    // Check monthly reminder limit for free users
+                    if (!user?.isPro && monthlyReminderCount >= 5) {
+                      Alert.alert(
+                        'Monthly Reminder Limit Reached',
+                        'Free users can create up to 5 reminders per month. Upgrade to Pro for unlimited reminders.',
+                        [
+                          { text: 'Maybe Later', style: 'cancel' },
+                          { text: 'Upgrade to Pro', onPress: () => router.push('/settings/subscription') }
+                        ]
+                      );
+                      return;
+                    }
+                    setAddReminderModalVisible(true);
+                  }}
                 >
                   <Plus size={20} color="#FFFFFF" />
-                  <Text style={styles.emptyActionButtonText}>Add Your First Reminder</Text>
+                  <Text style={styles.emptyActionButtonText}>
+                    {!user?.isPro && monthlyReminderCount >= 5 ? 'Upgrade for More' : 'Add Your First Reminder'}
+                  </Text>
+                    {!user?.isPro && monthlyReminderCount >= 5 ? 'Upgrade for More' : 'Add Your First Reminder'}
+                  </Text>
                 </TouchableOpacity>
               )}
             </View>

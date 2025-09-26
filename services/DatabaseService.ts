@@ -327,6 +327,53 @@ class DatabaseServiceClass {
     }));
   }
 
+  async getProfileCount(): Promise<number> {
+    await this.ensureReady();
+    
+    if (this.isWebFallback) {
+      return 2; // Mock count
+    }
+    
+    const result = await this.db!.getFirstAsync('SELECT COUNT(*) as count FROM profiles');
+    return result?.count || 0;
+  }
+
+  async getMonthlyReminderCount(): Promise<number> {
+    await this.ensureReady();
+    
+    if (this.isWebFallback) {
+      return 1; // Mock count
+    }
+    
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+    
+    const result = await this.db!.getFirstAsync(
+      'SELECT COUNT(*) as count FROM reminders WHERE createdAt >= ?',
+      [startOfMonth.toISOString()]
+    );
+    return result?.count || 0;
+  }
+
+  async getMonthlyScheduledTextCount(): Promise<number> {
+    await this.ensureReady();
+    
+    if (this.isWebFallback) {
+      return 1; // Mock count
+    }
+    
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+    
+    const result = await this.db!.getFirstAsync(
+      'SELECT COUNT(*) as count FROM scheduled_texts WHERE createdAt >= ?',
+      [startOfMonth.toISOString()]
+    );
+    return result?.count || 0;
+  }
+
   async getProfileById(id: number) {
     await this.ensureReady();
     
@@ -434,6 +481,14 @@ class DatabaseServiceClass {
       // Still log data collection even in web fallback mode
       await this.logProfileDataForCollection(profileData, profileData.id ? 'update' : 'create', mockId);
       return mockId;
+    }
+    
+    // Check profile limit for new profiles (not updates)
+    if (!profileData.id) {
+      const currentCount = await this.getProfileCount();
+      if (currentCount >= 5) {
+        throw new Error('PROFILE_LIMIT_REACHED');
+      }
     }
     
     const {
@@ -592,6 +647,12 @@ class DatabaseServiceClass {
       return Math.floor(Math.random() * 1000) + 1;
     }
     
+    // Check monthly reminder limit
+    const monthlyCount = await this.getMonthlyReminderCount();
+    if (monthlyCount >= 5) {
+      throw new Error('MONTHLY_REMINDER_LIMIT_REACHED');
+    }
+    
     const { profileId, title, description, type = 'general', scheduledFor } = reminderData;
     // Convert Date object to ISO string for database storage
     const scheduledForISO = scheduledFor instanceof Date ? scheduledFor.toISOString() : scheduledFor;
@@ -727,6 +788,12 @@ class DatabaseServiceClass {
     if (this.isWebFallback) {
       console.log('Web fallback: Scheduled text operation simulated');
       return Math.floor(Math.random() * 1000) + 1;
+    }
+    
+    // Check monthly scheduled text limit
+    const monthlyCount = await this.getMonthlyScheduledTextCount();
+    if (monthlyCount >= 5) {
+      throw new Error('MONTHLY_TEXT_LIMIT_REACHED');
     }
     
     const { profileId, phoneNumber, message, scheduledFor } = textData;
@@ -1099,6 +1166,50 @@ class DatabaseServiceClass {
       ...row,
       giftReminderEnabled: Boolean(row.giftReminderEnabled),
       completed: Boolean(row.completed),
+    }));
+  }
+
+  async updateProfileListType(profileId: number, listType: string) {
+    await this.ensureReady();
+    
+    if (this.isWebFallback) {
+      console.log('Web fallback: Update profile list type operation simulated');
+      return;
+    }
+    
+    const now = new Date().toISOString();
+    await this.db!.runAsync(`
+      UPDATE profiles SET listType = ?, updatedAt = ? WHERE id = ?
+    `, [listType, now, profileId]);
+  }
+
+  async getProfilesByName(name: string) {
+    await this.ensureReady();
+    
+    if (this.isWebFallback) {
+      const mockProfiles = await this.getAllProfiles();
+      return mockProfiles.filter(profile => 
+        profile.name.toLowerCase().includes(name.toLowerCase())
+      );
+    }
+    
+    const result = await this.db!.getAllAsync(
+      'SELECT * FROM profiles WHERE name LIKE ? ORDER BY name ASC',
+      [`%${name}%`]
+    );
+    
+    return result.map(profile => ({
+      ...profile,
+      tags: profile.tags ? JSON.parse(profile.tags) : [],
+      parents: profile.parents ? JSON.parse(profile.parents) : [],
+      kids: profile.kids ? JSON.parse(profile.kids) : [],
+      brothers: profile.brothers ? JSON.parse(profile.brothers) : [],
+      sisters: profile.sisters ? JSON.parse(profile.sisters) : [],
+      siblings: profile.siblings ? JSON.parse(profile.siblings) : [],
+      pets: profile.pets ? JSON.parse(profile.pets) : [],
+      foodLikes: profile.foodLikes ? JSON.parse(profile.foodLikes) : [],
+      foodDislikes: profile.foodDislikes ? JSON.parse(profile.foodDislikes) : [],
+      interests: profile.interests ? JSON.parse(profile.interests) : [],
     }));
   }
 

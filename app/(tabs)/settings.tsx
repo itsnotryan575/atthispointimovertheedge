@@ -4,10 +4,11 @@ import { Settings, User, Bell, Shield, Palette, Info, ChevronRight, MessageSquar
 import { router } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
+import { Crown } from 'lucide-react-native';
 
 export default function SettingsScreen() {
   const { isDark } = useTheme();
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
 
   const theme = {
     background: isDark ? '#0B0909' : '#003C24',
@@ -20,6 +21,7 @@ export default function SettingsScreen() {
 
   const settingsItems = [
     { icon: User, title: 'Account', subtitle: 'Manage your account', action: 'profile' },
+    { icon: Crown, title: 'Subscription', subtitle: user?.isPro ? 'Manage your Pro subscription' : 'Upgrade to Pro', action: 'subscription' },
     { icon: MessageSquare, title: 'Send Feedback', subtitle: 'Report bugs, suggest features', action: 'feedback' },
     { icon: Bell, title: 'Notifications', subtitle: 'Push notifications and alerts', action: 'notifications' },
     { icon: Share, title: 'Share Studio', subtitle: 'Create and share your ARMi cards', action: 'share' },
@@ -60,6 +62,8 @@ export default function SettingsScreen() {
               onPress={() => {
                 if (item.action === 'feedback') {
                   router.push('/feedback/submit');
+                } else if (item.action === 'subscription') {
+                  router.push('/settings/subscription');
                 } else if (item.action === 'share') {
                   router.push('/(share)/ShareScreen');
                 } else if (item.action === 'profile') {

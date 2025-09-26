@@ -17,8 +17,11 @@ import { ScheduledTextCard } from '@/components/ScheduledTextCard';
 import { DatabaseService } from '@/services/DatabaseService';
 import { useFocusEffect } from '@react-navigation/native';
 import { cancelById } from '@/services/Scheduler';
+import { useAuth } from '@/context/AuthContext';
+import { router } from 'expo-router';
 
 export default function SchedulerScreen() {
+  const { user } = useAuth();
   const { isDark } = useTheme();
   const params = useLocalSearchParams();
   const [scheduledTexts, setScheduledTexts] = useState([]);
@@ -26,6 +29,7 @@ export default function SchedulerScreen() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedTextForEdit, setSelectedTextForEdit] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [monthlyTextCount, setMonthlyTextCount] = useState(0);
 
   const theme = {
     text: '#f0f0f0',
@@ -40,11 +44,13 @@ export default function SchedulerScreen() {
 
   useEffect(() => {
     loadScheduledTexts();
+    loadMonthlyTextCount();
   }, []);
 
   useFocusEffect(
     React.useCallback(() => {
       loadScheduledTexts();
+      loadMonthlyTextCount();
       
       // Handle deep link from notification
       if (params.textId && params.action === 'edit') {
@@ -73,6 +79,15 @@ export default function SchedulerScreen() {
     }
   };
 
+  const loadMonthlyTextCount = async () => {
+    try {
+      const count = await DatabaseService.getMonthlyScheduledTextCount();
+      setMonthlyTextCount(count);
+    } catch (error) {
+      console.error('Error loading monthly text count:', error);
+    }
+  };
+
   const loadScheduledTexts = async () => {
     try {
       setLoading(true);
@@ -86,11 +101,25 @@ export default function SchedulerScreen() {
   };
 
   const handleAddScheduledText = () => {
+    // Check monthly text limit for free users
+    if (!user?.isPro && monthlyTextCount >= 5) {
+      Alert.alert(
+        'Monthly Text Limit Reached',
+        'Free users can schedule up to 5 texts per month. Upgrade to Pro for unlimited scheduled texts.',
+        [
+          { text: 'Maybe Later', style: 'cancel' },
+          { text: 'Upgrade to Pro', onPress: () => router.push('/settings/subscription') }
+        ]
+      );
+      return;
+    }
+    
     setShowAddModal(true);
   };
 
   const handleTextScheduled = () => {
     loadScheduledTexts();
+    loadMonthlyTextCount();
   };
 
   const handleTextEdit = (scheduledText: any) => {
@@ -190,6 +219,7 @@ export default function SchedulerScreen() {
         <TouchableOpacity
           style={[styles.addButton, { backgroundColor: theme.secondary }]}
           onPress={handleAddScheduledText}
+          disabled={!user?.isPro && monthlyTextCount >= 5}
         >
           <Plus size={20} color="#FFFFFF" />
         </TouchableOpacity>
@@ -214,9 +244,12 @@ export default function SchedulerScreen() {
           <TouchableOpacity
             style={[styles.emptyActionButton, { backgroundColor: theme.secondary }]}
             onPress={handleAddScheduledText}
+            disabled={!user?.isPro && monthlyTextCount >= 5}
           >
             <Plus size={20} color="#FFFFFF" />
-            <Text style={styles.emptyActionButtonText}>Schedule Your First Text</Text>
+            <Text style={styles.emptyActionButtonText}>
+              {!user?.isPro && monthlyTextCount >= 5 ? 'Upgrade for More' : 'Schedule Your First Text'}
+            </Text>
           </TouchableOpacity>
         </View>
       ) : (

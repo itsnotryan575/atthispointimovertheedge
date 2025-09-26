@@ -1,10 +1,20 @@
 import { DatabaseService } from './DatabaseService';
 import { scheduleScheduledText } from './Scheduler';
+import { AuthService } from './AuthService';
 
 export async function scheduleText(args: { profileName?: string; profileId?: string; when: string; message: string }) {
   console.log('TextService: Scheduling text with args:', args);
   
   try {
+    // Check pro status and monthly limits
+    const proStatus = await AuthService.checkProStatus();
+    if (!proStatus.isPro) {
+      const monthlyCount = await DatabaseService.getMonthlyScheduledTextCount();
+      if (monthlyCount >= 5) {
+        throw new Error('MONTHLY_TEXT_LIMIT_REACHED');
+      }
+    }
+    
     // Validate and parse the ISO-8601 date string
     const scheduledDate = new Date(args.when);
     
