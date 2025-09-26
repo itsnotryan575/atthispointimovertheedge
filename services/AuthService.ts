@@ -320,6 +320,8 @@ class AuthServiceClass {
           user_id: session.user.id,
           selected_list_type: listType,
           updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'user_id'
         });
       
       if (error) {
