@@ -267,26 +267,12 @@ export default function RemindersScreen() {
                     }
                     setAddReminderModalVisible(true);
                   }}
-                    // Check monthly reminder limit for free users
-                    if (!user?.isPro && monthlyReminderCount >= 5) {
-                      Alert.alert(
-                        'Monthly Reminder Limit Reached',
-                        'Free users can create up to 5 reminders per month. Upgrade to Pro for unlimited reminders.',
-                        [
-                          { text: 'Maybe Later', style: 'cancel' },
-                          { text: 'Upgrade to Pro', onPress: () => router.push('/settings/subscription') }
-                        ]
-                      );
-                      return;
-                    }
-                    setAddReminderModalVisible(true);
                   }}
                 >
                   <Plus size={20} color="#FFFFFF" />
                   <Text style={styles.emptyActionButtonText}>
                     {!user?.isPro && monthlyReminderCount >= 5 ? 'Upgrade for More' : 'Add Your First Reminder'}
                   </Text>
-                    {!user?.isPro && monthlyReminderCount >= 5 ? 'Upgrade for More' : 'Add Your First Reminder'}
                   </Text>
                 </TouchableOpacity>
               )}
