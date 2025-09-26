@@ -10,11 +10,11 @@ import { InitialListSelectionModal } from '@/components/InitialListSelectionModa
 export default function Index() {
   const { user, loading } = useAuth();
   const { isDark } = useTheme();
-  const [showDevNote, setShowDevNote] = useState(false);
-  const [isDevNoteStatusLoading, setIsDevNoteStatusLoading] = useState(true);
-  const [showListSelection, setShowListSelection] = useState(false);
-  const [isListSelectionLoading, setIsListSelectionLoading] = useState(true);
-  const [hasCompletedInitialSetup, setHasCompletedInitialSetup] = useState(false);
+  
+  // Modal states
+  const [showDevNoteModal, setShowDevNoteModal] = useState(false);
+  const [showListSelectionModal, setShowListSelectionModal] = useState(false);
+  const [isInitialModalCheckLoading, setIsInitialModalCheckLoading] = useState(true);
 
   console.log('Index - User:', user?.email, 'Confirmed:', user?.email_confirmed_at, 'Loading:', loading);
 
@@ -24,72 +24,93 @@ export default function Index() {
     primary: isDark ? '#8C8C8C' : '#f0f0f0',
   };
 
-  // Check dev note status every time user authentication status changes
+  // Determine which modals to show based on user state
   useEffect(() => {
-    if (user?.email_confirmed_at) {
-      console.log('🔍 DEBUG: User is authenticated and confirmed, checking dev note status');
-      checkListSelectionStatus();
+    if (!loading && user?.email_confirmed_at) {
+      console.log('🔍 DEBUG: User is authenticated and confirmed, determining modal flow');
+      determineAndShowInitialModals();
     } else {
-      // User is not confirmed, don't show dev note and clear loading state
-      setShowDevNote(false);
-      setIsDevNoteStatusLoading(false);
-      setShowListSelection(false);
-      setIsListSelectionLoading(false);
-      setHasCompletedInitialSetup(false);
+      // User is not confirmed or still loading, clear modal states
+      setShowDevNoteModal(false);
+      setShowListSelectionModal(false);
+      setIsInitialModalCheckLoading(false);
     }
-  }, [user?.email_confirmed_at]);
+  }, [loading, user?.email_confirmed_at, user?.isPro, user?.selectedListType]);
 
-  const checkDevNoteStatus = async () => {
+  const determineAndShowInitialModals = async () => {
     try {
-      setIsDevNoteStatusLoading(true);
-      console.log('🔍 DEBUG: Checking dev note status...');
+      setIsInitialModalCheckLoading(true);
+      console.log('🔍 DEBUG: Determining which modals to show...');
+      
+      // Check AsyncStorage flags
+      const hasMadeInitialListSelection = await AsyncStorage.getItem('has_made_initial_list_selection');
       const dontShowDevNote = await AsyncStorage.getItem('do_not_show_dev_note_again');
-      console.log('🔍 DEBUG: AsyncStorage value for do_not_show_dev_note_again:', dontShowDevNote);
-      if (dontShowDevNote !== 'true') {
-        console.log('🔍 DEBUG: Should show dev note, setting showDevNote to true');
-        setShowDevNote(true);
+      
+      console.log('🔍 DEBUG: AsyncStorage flags:', {
+        hasMadeInitialListSelection,
+        dontShowDevNote,
+        userIsPro: user?.isPro,
+        userSelectedListType: user?.selectedListType
+      });
+      
+      // Determine if list selection modal should show
+      // Show for free users who haven't selected a list AND haven't made initial selection
+      const shouldShowListSelection = !user?.isPro && 
+                                     !user?.selectedListType && 
+                                     hasMadeInitialListSelection !== 'true';
+      
+      // Determine if dev note modal should show
+      // Show if user hasn't opted out AND hasn't made initial list selection (or is pro)
+      const shouldShowDevNote = dontShowDevNote !== 'true';
+      
+      console.log('🔍 DEBUG: Modal decisions:', {
+        shouldShowListSelection,
+        shouldShowDevNote
+      });
+      
+      if (shouldShowListSelection) {
+        // List selection takes priority - show it first
+        console.log('🔍 DEBUG: Showing list selection modal');
+        setShowListSelectionModal(true);
+        setShowDevNoteModal(false);
+      } else if (shouldShowDevNote) {
+        // Show dev note if list selection isn't needed
+        console.log('🔍 DEBUG: Showing dev note modal');
+        setShowDevNoteModal(true);
+        setShowListSelectionModal(false);
       } else {
-        console.log('🔍 DEBUG: User opted out, not showing dev note');
-        setShowDevNote(false);
+        // No modals needed
+        console.log('🔍 DEBUG: No modals needed, proceeding to main app');
+        setShowDevNoteModal(false);
+        setShowListSelectionModal(false);
       }
-      console.log('🔍 DEBUG: Dev note check completed');
     } catch (error) {
-      console.error('Error checking dev note status:', error);
-      setShowDevNote(false);
+      console.error('Error determining modal flow:', error);
+      // On error, don't show any modals
+      setShowDevNoteModal(false);
+      setShowListSelectionModal(false);
     } finally {
-      setIsDevNoteStatusLoading(false);
+      setIsInitialModalCheckLoading(false);
     }
   };
 
-  const checkListSelectionStatus = async () => {
+  const handleListSelectionClose = async () => {
+    console.log('🔍 DEBUG: List selection modal closed');
     try {
-      setIsListSelectionLoading(true);
-      console.log('🔍 DEBUG: Checking list selection status...');
-      console.log('🔍 DEBUG: User isPro:', user?.isPro);
-      console.log('🔍 DEBUG: User selectedListType:', user?.selectedListType);
+      // Mark that user has made their initial list selection
+      await AsyncStorage.setItem('has_made_initial_list_selection', 'true');
+      setShowListSelectionModal(false);
       
-      // Check if user has completed initial setup
-      const hasCompletedSetup = await AsyncStorage.getItem('has_completed_initial_setup');
-      console.log('🔍 DEBUG: Has completed setup:', hasCompletedSetup);
-      
-      // Only show list selection for free users who haven't selected a list yet AND haven't completed setup
-      if (!user?.isPro && !user?.selectedListType && hasCompletedSetup !== 'true') {
-        console.log('🔍 DEBUG: Should show list selection modal');
-        setShowListSelection(true);
+      // After list selection, check if dev note should be shown
+      const dontShowDevNote = await AsyncStorage.getItem('do_not_show_dev_note_again');
+      if (dontShowDevNote !== 'true') {
+        console.log('🔍 DEBUG: Showing dev note after list selection');
+        setShowDevNoteModal(true);
       } else {
-        console.log('🔍 DEBUG: User is pro, has selected a list, or has completed setup');
-        setShowListSelection(false);
-        setHasCompletedInitialSetup(true);
-        // Now check dev note status
-        checkDevNoteStatus();
+        console.log('🔍 DEBUG: User opted out of dev note, proceeding to main app');
       }
     } catch (error) {
-      console.error('Error checking list selection status:', error);
-      setShowListSelection(false);
-      setHasCompletedInitialSetup(true);
-      checkDevNoteStatus();
-    } finally {
-      setIsListSelectionLoading(false);
+      console.error('Error handling list selection close:', error);
     }
   };
 
@@ -100,25 +121,16 @@ export default function Index() {
         console.log('🔍 DEBUG: Setting do_not_show_dev_note_again to true');
         await AsyncStorage.setItem('do_not_show_dev_note_again', 'true');
       }
-      setShowDevNote(false);
+      setShowDevNoteModal(false);
       console.log('🔍 DEBUG: Dev note closed');
     } catch (error) {
       console.error('Error saving dev note preference:', error);
-      setShowDevNote(false);
+      setShowDevNoteModal(false);
     }
   };
 
-  const handleListSelectionClose = () => {
-    console.log('🔍 DEBUG: List selection modal closed');
-    setShowListSelection(false);
-    setHasCompletedInitialSetup(true);
-    // Mark initial setup as completed
-    AsyncStorage.setItem('has_completed_initial_setup', 'true');
-    // After list selection, check dev note status
-    checkDevNoteStatus();
-  };
-
-  if (loading || isDevNoteStatusLoading) {
+  // Show loading while checking modal states
+  if (loading || isInitialModalCheckLoading) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background }]}>
         <Text style={[styles.loadingText, { color: theme.text }]}>
@@ -128,44 +140,46 @@ export default function Index() {
     );
   }
 
-  if (user && user.email_confirmed_at) {
-    // If list selection should be shown, show that modal first
-    if (showListSelection && !isListSelectionLoading) {
-      console.log('🔍 DEBUG: Showing list selection modal');
-      return (
-        <View style={[styles.container, { backgroundColor: theme.background }]}>
-          <InitialListSelectionModal
-            visible={showListSelection}
-            onClose={handleListSelectionClose}
-            theme={theme}
-          />
-        </View>
-      );
-    }
-    
-    // If dev note should be shown, show the modal
-    if (showDevNote) {
-      console.log('🔍 DEBUG: Showing dev note modal');
-      return (
-        <View style={[styles.container, { backgroundColor: theme.background }]}>
-          <DevNoteModal
-            visible={showDevNote}
-            onClose={handleDevNoteClose}
-          />
-        </View>
-      );
-    }
-    
-    console.log('🔍 DEBUG: All modals handled, redirecting to main app');
-    // Dev note has been handled or user opted out, redirect to main app
-    return <Redirect href="/(tabs)" />;
+  // Handle unauthenticated users
+  if (!user) {
+    return <Redirect href="/auth/sign-in" />;
   }
 
-  if (user && !user.email_confirmed_at) {
+  // Handle unverified users
+  if (!user.email_confirmed_at) {
     return <Redirect href="/auth/verify-email" />;
   }
 
-  return <Redirect href="/auth/sign-in" />;
+  // Show list selection modal first (for free users who haven't selected)
+  if (showListSelectionModal) {
+    console.log('🔍 DEBUG: Rendering list selection modal');
+    return (
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <InitialListSelectionModal
+          visible={showListSelectionModal}
+          onClose={handleListSelectionClose}
+          theme={theme}
+        />
+      </View>
+    );
+  }
+
+  // Show dev note modal second (if user hasn't opted out)
+  if (showDevNoteModal) {
+    console.log('🔍 DEBUG: Rendering dev note modal');
+    return (
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <DevNoteModal
+          visible={showDevNoteModal}
+          onClose={handleDevNoteClose}
+        />
+      </View>
+    );
+  }
+
+  // All modals handled, redirect to main app
+  console.log('🔍 DEBUG: All modals handled, redirecting to main app');
+  return <Redirect href="/(tabs)" />;
 }
 
 const styles = StyleSheet.create({

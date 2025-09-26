@@ -314,22 +314,22 @@ class AuthServiceClass {
         throw new Error('No authenticated user');
       }
       
-      // First, check if a profile already exists for this user
+      // Check if a profile already exists for this user
       const { data: existingProfile, error: selectError } = await this.supabase
         .from('user_profiles')
-        .select('id')
+        .select('id, selected_list_type')
         .eq('user_id', session.user.id)
-        .single();
+        .maybeSingle(); // Use maybeSingle to avoid error when no record exists
       
-      if (selectError && selectError.code !== 'PGRST116') {
-        // PGRST116 is "not found" error, which is expected for new users
+      if (selectError) {
+        console.error('Error checking existing profile:', selectError);
         throw new Error(selectError.message);
       }
       
       const now = new Date().toISOString();
       
       if (existingProfile) {
-        // Profile exists, update it
+        console.log('Updating existing user profile with list type:', listType);
         const { error: updateError } = await this.supabase
           .from('user_profiles')
           .update({
@@ -339,10 +339,12 @@ class AuthServiceClass {
           .eq('user_id', session.user.id);
         
         if (updateError) {
+          console.error('Error updating user profile:', updateError);
           throw new Error(updateError.message);
         }
+        console.log('Successfully updated user profile');
       } else {
-        // Profile doesn't exist, create it
+        console.log('Creating new user profile with list type:', listType);
         const { error: insertError } = await this.supabase
           .from('user_profiles')
           .insert({
@@ -353,8 +355,10 @@ class AuthServiceClass {
           });
         
         if (insertError) {
+          console.error('Error creating user profile:', insertError);
           throw new Error(insertError.message);
         }
+        console.log('Successfully created user profile');
       }
     } catch (error) {
       console.error('Error updating selected list type:', error);

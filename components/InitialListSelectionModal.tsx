@@ -48,7 +48,7 @@ export function InitialListSelectionModal({ visible, onClose, theme }: InitialLi
       await updateSelectedListType(listType);
       
       // Mark initial setup as completed
-      await AsyncStorage.setItem('has_completed_initial_setup', 'true');
+      await AsyncStorage.setItem('has_made_initial_list_selection', 'true');
       
       Alert.alert(
         'List Selected!',
