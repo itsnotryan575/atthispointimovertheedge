@@ -44,12 +44,6 @@ export default function VerifyEmailScreen() {
     }
   }, [countdown]);
 
-  // Redirect if user becomes confirmed
-  useEffect(() => {
-    if (user?.email_confirmed_at) {
-      router.replace('/(tabs)');
-    }
-  }, [user?.email_confirmed_at]);
 
   const handleVerifyOtp = async () => {
     if (!otpCode.trim()) {
@@ -71,10 +65,8 @@ export default function VerifyEmailScreen() {
     try {
       await verifyEmailOtp(user.email, otpCode.trim());
       
-      // Small delay to ensure session is refreshed, then navigate
-      setTimeout(() => {
-        router.replace('/(tabs)');
-      }, 500);
+      // Navigate immediately after successful verification
+      router.replace('/');
     } catch (error) {
       console.error('Verify OTP error:', error);
       Alert.alert('Verification Failed', error.message || 'Invalid verification code. Please try again.');
