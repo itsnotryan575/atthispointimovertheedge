@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Modal, Alert } from 'react-na
 import { Users, Briefcase, Heart, Zap } from 'lucide-react-native';
 import { ArmiList } from '@/types/armi-intents';
 import { useAuth } from '@/context/AuthContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface InitialListSelectionModalProps {
   visible: boolean;
@@ -45,6 +46,10 @@ export function InitialListSelectionModal({ visible, onClose, theme }: InitialLi
     
     try {
       await updateSelectedListType(listType);
+      
+      // Mark initial setup as completed
+      await AsyncStorage.setItem('has_completed_initial_setup', 'true');
+      
       Alert.alert(
         'List Selected!',
         `You've chosen ${listType} as your primary list. You can upgrade to Pro anytime to access all lists.`,

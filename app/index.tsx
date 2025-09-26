@@ -14,6 +14,7 @@ export default function Index() {
   const [isDevNoteStatusLoading, setIsDevNoteStatusLoading] = useState(true);
   const [showListSelection, setShowListSelection] = useState(false);
   const [isListSelectionLoading, setIsListSelectionLoading] = useState(true);
+  const [hasCompletedInitialSetup, setHasCompletedInitialSetup] = useState(false);
 
   console.log('Index - User:', user?.email, 'Confirmed:', user?.email_confirmed_at, 'Loading:', loading);
 
@@ -27,7 +28,6 @@ export default function Index() {
   useEffect(() => {
     if (user?.email_confirmed_at) {
       console.log('🔍 DEBUG: User is authenticated and confirmed, checking dev note status');
-      checkDevNoteStatus();
       checkListSelectionStatus();
     } else {
       // User is not confirmed, don't show dev note and clear loading state
@@ -35,6 +35,7 @@ export default function Index() {
       setIsDevNoteStatusLoading(false);
       setShowListSelection(false);
       setIsListSelectionLoading(false);
+      setHasCompletedInitialSetup(false);
     }
   }, [user?.email_confirmed_at]);
 
@@ -67,17 +68,26 @@ export default function Index() {
       console.log('🔍 DEBUG: User isPro:', user?.isPro);
       console.log('🔍 DEBUG: User selectedListType:', user?.selectedListType);
       
-      // Only show list selection for free users who haven't selected a list yet
-      if (!user?.isPro && !user?.selectedListType) {
+      // Check if user has completed initial setup
+      const hasCompletedSetup = await AsyncStorage.getItem('has_completed_initial_setup');
+      console.log('🔍 DEBUG: Has completed setup:', hasCompletedSetup);
+      
+      // Only show list selection for free users who haven't selected a list yet AND haven't completed setup
+      if (!user?.isPro && !user?.selectedListType && hasCompletedSetup !== 'true') {
         console.log('🔍 DEBUG: Should show list selection modal');
         setShowListSelection(true);
       } else {
-        console.log('🔍 DEBUG: User is pro or has already selected a list');
+        console.log('🔍 DEBUG: User is pro, has selected a list, or has completed setup');
         setShowListSelection(false);
+        setHasCompletedInitialSetup(true);
+        // Now check dev note status
+        checkDevNoteStatus();
       }
     } catch (error) {
       console.error('Error checking list selection status:', error);
       setShowListSelection(false);
+      setHasCompletedInitialSetup(true);
+      checkDevNoteStatus();
     } finally {
       setIsListSelectionLoading(false);
     }
@@ -101,6 +111,9 @@ export default function Index() {
   const handleListSelectionClose = () => {
     console.log('🔍 DEBUG: List selection modal closed');
     setShowListSelection(false);
+    setHasCompletedInitialSetup(true);
+    // Mark initial setup as completed
+    AsyncStorage.setItem('has_completed_initial_setup', 'true');
     // After list selection, check dev note status
     checkDevNoteStatus();
   };
