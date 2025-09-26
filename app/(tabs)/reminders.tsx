@@ -266,6 +266,8 @@ export default function RemindersScreen() {
                       return;
                     }
                     setAddReminderModalVisible(true);
+                  }}
+                  }}
                 >
                   <Plus size={20} color="#FFFFFF" />
                   <Text style={styles.emptyActionButtonText}>
